@@ -1,113 +1,115 @@
-# Predicción de fallas del sistema de aire (APS) en camiones Scania
+🇪🇸 [Leer en español](README.es.md)
 
-Clasificación con clases desbalanceadas y **costos asimétricos**: ¿qué camiones conviene mandar a revisión para minimizar el costo total?
+# Air Pressure System (APS) Failure Prediction in Scania Trucks
 
-**Autor:** Carlos Adolfo Peralta · [LinkedIn](https://www.linkedin.com/in/carlosperalta1993/) · [GitHub](https://github.com/CarlosAdolfoPeralta)
+Classification with imbalanced classes and **asymmetric costs**: which trucks should be sent for inspection to minimize total cost?
 
-## Resumen
+**Author:** Carlos Adolfo Peralta · [LinkedIn](https://www.linkedin.com/in/carlosperalta1993/) · [GitHub](https://github.com/CarlosAdolfoPeralta)
+
+## Summary
 
 | | |
 |---|---|
-| **Problema** | Detectar camiones con falla inminente del sistema de aire (APS) antes de que ocurra una avería |
-| **Datos** | [APS Failure at Scania Trucks](https://archive.ics.uci.edu/dataset/414/ida2016challenge) (UCI): 60.000 camiones en train (1,7% con falla) y 16.000 en test (2,3%), con 170 variables anonimizadas |
-| **Costos (oficiales)** | Revisión innecesaria: 10 · Falla no detectada: 500 |
-| **Modelo** | LightGBM, con el umbral de decisión elegido por costo |
-| **Resultado en test** | Costo total medio de **8.580** (rango 7.930-9.360 en 5 semillas), contra 156.250 revisando todos los camiones y 187.500 sin revisar ninguno |
+| **Problem** | Detect trucks with an imminent air pressure system (APS) failure before a breakdown occurs |
+| **Data** | [APS Failure at Scania Trucks](https://archive.ics.uci.edu/dataset/414/ida2016challenge) (UCI): 60,000 trucks in train (1.7% with failure) and 16,000 in test (2.3%), with 170 anonymized features |
+| **Costs (official)** | Unnecessary inspection: 10 · Missed failure: 500 |
+| **Model** | LightGBM, with the decision threshold chosen by cost |
+| **Test result** | Mean total cost of **8,580** (range 7,930-9,360 across 5 seeds), vs. 156,250 inspecting every truck and 187,500 inspecting none |
 
-## Contexto
+## Context
 
-Revisar un camión que no tiene falla cuesta poco (10), pero no detectar una falla puede terminar en una avería y cuesta mucho más (500). Por eso la métrica a minimizar no es la exactitud, sino el costo total:
+Inspecting a truck that has no failure is cheap (10), but missing a failure can end in a breakdown and costs far more (500). For that reason the metric to minimize is not accuracy but total cost:
 
 ```
-costo total = 10 × falsos positivos + 500 × falsos negativos
+total cost = 10 × false positives + 500 × false negatives
 ```
 
-Es la métrica oficial del desafío IDA 2016 en el que se publicó este dataset.
+This is the official metric of the IDA 2016 challenge in which this dataset was published.
 
-## Datos
+## Data
 
-- **Origen:** datos de camiones Scania en uso diario. La clase positiva son fallas de un componente específico del sistema de aire (APS); la negativa, camiones con fallas de otros componentes.
-- **Tamaño:** 60.000 camiones en train (1.000 con falla) y 16.000 en test (375 con falla).
-- **Variables:** 170, anonimizadas por razones de propiedad. Los valores faltantes vienen escritos como `na`.
-- **Licencia:** CC BY 4.0.
+- **Origin:** data from Scania trucks in daily use. The positive class is failures of a specific component of the air pressure system (APS); the negative class is trucks with failures in other components.
+- **Size:** 60,000 trucks in train (1,000 with failure) and 16,000 in test (375 with failure).
+- **Features:** 170, anonymized for proprietary reasons. Missing values are written as `na`.
+- **License:** CC BY 4.0.
 
-## Enfoque
+## Approach
 
-1. **Modelo simple.** LightGBM con parámetros razonables y sin ajuste de hiperparámetros. Los valores faltantes se dejan como nulos, ya que LightGBM los maneja de forma nativa.
-2. **Umbral por costo.** Se elige el umbral que minimiza `10 × FP + 500 × FN`. Con solo 1.000 fallas en train, apartar un 20% como validación dejaría unas 200, muy pocas para elegir un umbral con estabilidad. Por eso se usan **predicciones fuera de muestra con validación cruzada** de 5 pliegues, que aprovechan todas las fallas.
-3. **Grilla de umbrales en escala logarítmica.** Una primera grilla lineal dejó el óptimo en su borde inferior; con la escala logarítmica el óptimo queda en el interior.
-4. **Test intacto.** El test oficial se usa una sola vez por corrida, al final, con el umbral ya fijado.
-5. **Estabilidad.** Todo el procedimiento (validación cruzada, elección del umbral y evaluación en test) se repite con 5 semillas, para reportar un rango y no un único número.
+1. **Simple model.** LightGBM with reasonable parameters and no hyperparameter tuning. Missing values are left as nulls, since LightGBM handles them natively.
+2. **Cost-based threshold.** The threshold that minimizes `10 × FP + 500 × FN` is chosen. With only 1,000 failures in train, setting aside 20% for validation would leave about 200, too few to choose a stable threshold. That is why **out-of-fold predictions from 5-fold cross-validation** are used, which make use of all the failures.
+3. **Log-scale threshold grid.** A first linear grid left the optimum at its lower edge; with a log scale the optimum falls in the interior.
+4. **Untouched test set.** The official test set is used only once per run, at the end, with the threshold already fixed.
+5. **Stability.** The whole procedure (cross-validation, threshold selection and test evaluation) is repeated with 5 seeds, so as to report a range rather than a single number.
 
-## Resultados
+## Results
 
-### Costo en test
+### Cost on test
 
-| Estrategia | Costo total |
+| Strategy | Total cost |
 |---|---|
-| No revisar ninguno | 187.500 |
-| Revisar todos | 156.250 |
-| **Modelo (media de 5 semillas)** | **8.580** (desv. 558; rango 7.930-9.360) |
-| Referencia: mejor resultado del desafío IDA 2016 | 9.920 |
+| Inspect none | 187,500 |
+| Inspect all | 156,250 |
+| **Model (mean of 5 seeds)** | **8,580** (std. 558; range 7,930-9,360) |
+| Reference: best result of the IDA 2016 challenge | 9,920 |
 
-El costo medio es ~95% menor que el de revisar todos los camiones o el de no revisar ninguno.
+The mean cost is ~95% lower than inspecting every truck or inspecting none.
 
-### Estabilidad entre semillas
+### Stability across seeds
 
-| Semilla | Umbral | Revisiones innecesarias | Fallas no detectadas | Costo en test |
+| Seed | Threshold | Unnecessary inspections | Missed failures | Test cost |
 |---|---|---|---|---|
-| 42 | 0,00126 | 524 | 6 | 8.240 |
-| 1 | 0,00190 | 449 | 8 | 8.490 |
-| 2 | 0,00129 | 543 | 5 | 7.930 |
-| 3 | 0,00194 | 436 | 10 | 9.360 |
-| 4 | 0,00194 | 438 | 9 | 8.880 |
+| 42 | 0.00126 | 524 | 6 | 8,240 |
+| 1 | 0.00190 | 449 | 8 | 8,490 |
+| 2 | 0.00129 | 543 | 5 | 7,930 |
+| 3 | 0.00194 | 436 | 10 | 9,360 |
+| 4 | 0.00194 | 438 | 9 | 8,880 |
 
-- **Recall:** entre 97,3% y 98,7% (de 375 fallas, se pierden entre 5 y 10).
-- **Precisión:** entre 40,5% y 45,6%.
-- **Qué cambia entre semillas:** el balance entre revisiones innecesarias y fallas no detectadas. El costo total queda parecido porque una falla no detectada (500) equivale a 50 revisiones innecesarias (10 cada una).
+- **Recall:** between 97.3% and 98.7% (out of 375 failures, between 5 and 10 are missed).
+- **Precision:** between 40.5% and 45.6%.
+- **What changes across seeds:** the balance between unnecessary inspections and missed failures. The total cost stays similar because one missed failure (500) is equivalent to 50 unnecessary inspections (10 each).
 
-### Corrida principal (semilla 42)
+### Main run (seed 42)
 
-| | Predicho: sin falla | Predicho: con falla |
+| | Predicted: no failure | Predicted: failure |
 |---|---|---|
-| **Real: sin falla** | 15.101 | 524 |
-| **Real: con falla** | 6 | 369 |
+| **Actual: no failure** | 15,101 | 524 |
+| **Actual: failure** | 6 | 369 |
 
-- **Validación cruzada (train):** AUC-PR 0,8975 (tasa base 1,7%) · AUC-ROC 0,989.
-- **Test:** AUC-PR 0,934 (tasa base 2,3%) · AUC-ROC 0,997. No son comparables de forma directa con los de validación cruzada, porque la proporción de fallas es distinta.
+- **Cross-validation (train):** AUC-PR 0.8975 (base rate 1.7%) · AUC-ROC 0.989.
+- **Test:** AUC-PR 0.934 (base rate 2.3%) · AUC-ROC 0.997. They are not directly comparable with the cross-validation figures, because the proportion of failures differs.
 
-![Costo según el umbral](reports/figures/cost_curve.png)
+![Cost by threshold](reports/figures/cost_curve.png)
 
-### Cómo leer la comparación con el desafío
+### How to read the comparison with the challenge
 
-En las cinco corridas el costo fue menor a 9.920 (máximo 9.360), por lo que el resultado es del mismo orden o algo mejor que el mejor del desafío. Pero el rango cubre solo la variación por el azar del entrenamiento (semilla del modelo y pliegues de la validación cruzada); no cubre la variación por el conjunto de test, que es fijo y tiene solo 375 fallas, ni las condiciones distintas del desafío de 2016. Por eso se presenta como una referencia y no como una superación.
+In all five runs the cost was below 9,920 (maximum 9,360), so the result is of the same order as, or somewhat better than, the best challenge result. But the range covers only the variation due to training randomness (model seed and cross-validation folds); it does not cover the variation due to the test set, which is fixed and has only 375 failures, nor the different conditions of the 2016 challenge. That is why it is presented as a reference and not as having surpassed it.
 
-## Observaciones
+## Observations
 
-- **Los valores faltantes parecen informativos.** Los camiones con falla tienen en promedio 29,2 valores faltantes por fila, contra 13,9 en los que no fallan. Es una asociación; no se investigó la causa. Respalda la decisión de no imputar.
-- **El umbral óptimo es muy bajo** (entre 0,0013 y 0,0019). Con estos costos, el punto de equilibrio de un modelo bien calibrado estaría cerca de `10 / (10 + 500) ≈ 0,02`. Que el óptimo sea mucho menor sugiere que las probabilidades de LightGBM no están calibradas (hipótesis, no verificada).
-- **El test tiene más fallas que el train** (2,34% frente a 1,67%), por lo que los dos conjuntos no tienen la misma distribución. Podría favorecer un umbral aún más bajo en test (hipótesis, no verificada).
+- **Missing values appear to be informative.** Trucks with a failure have on average 29.2 missing values per row, vs. 13.9 for those without. This is an association; the cause was not investigated. It supports the decision not to impute.
+- **The optimal threshold is very low** (between 0.0013 and 0.0019). With these costs, the break-even point of a well-calibrated model would be near `10 / (10 + 500) ≈ 0.02`. That the optimum is much lower suggests that LightGBM's probabilities are not calibrated (hypothesis, not verified).
+- **The test set has more failures than train** (2.34% vs. 1.67%), so the two sets do not share the same distribution. This could favor an even lower threshold on test (hypothesis, not verified).
 
-## Limitaciones
+## Limitations
 
-- **Variables anonimizadas:** no se puede interpretar qué mide cada una.
-- **Sin fechas:** las filas no tienen marca temporal, por lo que no se pudo hacer validación temporal.
-- **Un único tipo de modelo sin ajuste de hiperparámetros.**
-- **Probabilidades no calibradas.**
-- **El rango entre semillas** no incluye la variación por el conjunto de test (fijo, con 375 fallas).
-- **Reproducibilidad:** los resultados pueden variar levemente con la versión de LightGBM y con el número de hilos.
+- **Anonymized features:** it is not possible to interpret what each one measures.
+- **No dates:** the rows have no timestamp, so temporal validation was not possible.
+- **A single model type with no hyperparameter tuning.**
+- **Uncalibrated probabilities.**
+- **The range across seeds** does not include the variation due to the test set (fixed, with 375 failures).
+- **Reproducibility:** results may vary slightly with the LightGBM version and the number of threads.
 
-## Próximos pasos
+## Next steps
 
-- Ajustar hiperparámetros.
-- Calibrar las probabilidades y comparar el umbral resultante con el óptimo por costo.
-- Comparar con otros algoritmos (XGBoost, CatBoost, regresión logística).
-- Probar ponderación por clase y analizar si mejora el costo.
+- Tune hyperparameters.
+- Calibrate the probabilities and compare the resulting threshold with the cost-optimal one.
+- Compare with other algorithms (XGBoost, CatBoost, logistic regression).
+- Try class weighting and analyze whether it improves the cost.
 
-## Estructura del repositorio
+## Repository structure
 
 ```
-proyecto_fallas_scania/
+project_failures_scania/
 ├── notebooks/
 │   └── fallas_scania.ipynb
 ├── reports/
@@ -118,18 +120,18 @@ proyecto_fallas_scania/
 └── README.md
 ```
 
-La carpeta `data/` no se incluye en el repositorio.
+The `data/` folder is not included in the repository.
 
-## Cómo reproducirlo
+## How to reproduce
 
-1. Instalar dependencias: `pip install -r requirements.txt`
-2. Descargar `aps_failure_training_set.csv` y `aps_failure_test_set.csv` desde [UCI](https://archive.ics.uci.edu/dataset/414/ida2016challenge) y copiarlos en una carpeta `data/` en la raíz del proyecto.
-3. Ejecutar `notebooks/fallas_scania.ipynb` de arriba hacia abajo. Genera la figura en `reports/figures/`. La sección 6 repite el procedimiento con 5 semillas y tarda unos minutos.
+1. Install dependencies: `pip install -r requirements.txt`
+2. Download `aps_failure_training_set.csv` and `aps_failure_test_set.csv` from [UCI](https://archive.ics.uci.edu/dataset/414/ida2016challenge) and copy them into a `data/` folder at the project root.
+3. Run `notebooks/fallas_scania.ipynb` from top to bottom. It generates the figure in `reports/figures/`. Section 6 repeats the procedure with 5 seeds and takes a few minutes.
 
-## Fuente de los datos
+## Data source
 
-Scania CV AB. *APS Failure at Scania Trucks* [Dataset]. 2016. UCI Machine Learning Repository. https://doi.org/10.24432/C51S51. Licencia CC BY 4.0.
+Scania CV AB. *APS Failure at Scania Trucks* [Dataset]. 2016. UCI Machine Learning Repository. https://doi.org/10.24432/C51S51. License CC BY 4.0.
 
-## Tecnologías
+## Tech stack
 
 Python · pandas · LightGBM · scikit-learn · matplotlib
